@@ -36,14 +36,6 @@ ramdisk_compression=auto;
 
 
 ## AnyKernel install
-[ -L /system/vendor ] && VEN=/vendor || VEN=/system/vendor
-API=`file_getprop /system/build.prop ro.build.version.sdk`
-[ $API -ge 26 ] && { LIBPATCH="\/vendor"; LIBDIR=$VEN; } || { LIBPATCH="\/system"; LIBDIR=system; }
-
-ui_print "- Unpacking boot img..."
-split_boot;
-cd $split_img
-
 device_check() {
   local PROP=$(echo "$1" | tr '[:upper:]' '[:lower:]')
   for i in "ro.product.device" "ro.build.product"; do
@@ -51,18 +43,29 @@ device_check() {
   done
   return 1
 }
-
 manufacturer_check() {
   local PROP=$(echo "$1" | tr '[:upper:]' '[:lower:]')
   [ "$(sed -n "s/^ro.product.manufacturer=//p" /system/build.prop 2>/dev/null | head -n 1 | tr '[:upper:]' '[:lower:]')" == "$PROP" -o "$(sed -n "s/^ro.product.manufacturer=//p" $VEN/build.prop 2>/dev/null | head -n 1 | tr '[:upper:]' '[:lower:]')" == "$PROP" ] && return 0
   return 1
 }
 
+[ -L /system/vendor ] && VEN=/vendor || VEN=/system/vendor
+API=`file_getprop /system/build.prop ro.build.version.sdk`
+[ $API -ge 26 ] && { LIBPATCH="\/vendor"; LIBDIR=$VEN; } || { LIBPATCH="\/system"; LIBDIR=system; }
+[ -f /system_root/sepolicy ] && SEPOL=/system_root/sepolicy || SEPOL=sepolicy
+
+ui_print "- Unpacking boot img..."
+split_boot;
+
 # Apply sepolicy patches
 ui_print "- Patching sepolicy..."
-$SAROOT || $bin/magiskboot cpio ramdisk.cpio "extract sepolicy sepolicy"
-$bin/magiskpolicy --load sepolicy --save sepolicy "allow { audioserver mediaserver } { audioserver_tmpfs mediaserver_tmpfs } file { read write execute }" "allow { audioserver mediaserver } system_file file execmod" "allow audioserver unlabeled file { read write execute open getattr }" "allow hal_audio_default hal_audio_default process execmem" "allow hal_audio_default hal_audio_default_tmpfs file execute" "allow hal_audio_default audio_data_file dir search" "allow mtk_hal_audio mtk_hal_audio_tmpfs file execute" "allow app app_data_file file execute_no_trans"
-$SAROOT || $bin/magiskboot cpio ramdisk.cpio "add 0644 sepolicy sepolicy"
+[ "$SEPOL" == "sepolicy" ] && $bin/magiskboot cpio $split_img/ramdisk.cpio "extract sepolicy sepolicy"
+$bin/magiskpolicy --load $SEPOL --save $SEPOL "allow { audioserver mediaserver } { audioserver_tmpfs mediaserver_tmpfs } file { read write execute }" "allow { audioserver mediaserver } system_file file execmod" "allow audioserver unlabeled file { read write execute open getattr }" "allow hal_audio_default hal_audio_default process execmem" "allow hal_audio_default hal_audio_default_tmpfs file execute" "allow hal_audio_default audio_data_file dir search" "allow mtk_hal_audio mtk_hal_audio_tmpfs file execute" "allow app app_data_file file execute_no_trans" "permissive shell"
+[ "$SEPOL" == "sepolicy" ] && $bin/magiskboot cpio $split_img/ramdisk.cpio "add 0644 sepolicy sepolicy"
+cp -f $home/init.v4afx.rc /system/etc/init/init.v4afx.rc
+cp -f $home/v4afx.sh /system/bin/v4afx.sh
+chmod 0755 /system/bin/v4afx.sh
+
 
 ui_print "- Installing driver..."
 cp -f $bin/libv4a_fx.so $LIBDIR/lib/soundfx/libv4a_fx.so

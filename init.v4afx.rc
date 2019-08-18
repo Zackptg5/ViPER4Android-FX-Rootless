@@ -1,0 +1,7 @@
+# Run init.d scripts
+service v4afx /system/bin/v4afx.sh
+    class late_start
+    seclabel u:r:shell:s0
+    user root
+    group root
+    oneshot
