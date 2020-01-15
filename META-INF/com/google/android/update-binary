@@ -182,7 +182,7 @@ $BOOTMODE || $bb mount -o bind /dev/urandom /dev/random;
 umount_all;
 setup_mountpoint $ANDROID_ROOT;
 if ! is_mounted $ANDROID_ROOT; then
-  $bb mount -o ro -t auto $ANDROID_ROOT;
+  $bb mount -o rw -t auto $ANDROID_ROOT;
 fi;
 case $ANDROID_ROOT in
   /system_root) setup_mountpoint /system;;
@@ -193,7 +193,7 @@ case $ANDROID_ROOT in
       if [ $? != 0 ]; then
         $bb umount /system;
         $bb umount -l /system 2>/dev/null;
-        $bb mount -o ro -t auto /dev/block/bootdevice/by-name/system /system_root;
+        $bb mount -o rw -t auto /dev/block/bootdevice/by-name/system /system_root;
       fi;
     fi;
   ;;
@@ -201,7 +201,7 @@ esac;
 if is_mounted /system_root; then
   $bb mount -o bind /system_root/system /system;
 fi;
-$bb mount -o ro -t auto /vendor 2>/dev/null;
+$bb mount -o rw -t auto /vendor 2>/dev/null;
 $BOOTMODE || mount_apex;
 if ! is_mounted /data; then
   $bb mount /data;
