@@ -13,7 +13,7 @@ AnyKernel3 - Flashable Zip Template for Kernel Releases with Ramdisk Modificatio
 
 AnyKernel3 pushes the format even further by allowing kernel developers to modify the underlying ramdisk for kernel feature support easily using a number of included command methods along with properties and variables.
 
-_A working script based on Galaxy Nexus (tuna) is included for reference._
+_A script based on Galaxy Nexus (tuna) is included for reference._
 
 ## // Properties / Variables ##
 ```
@@ -26,6 +26,7 @@ device.name1=maguro
 device.name2=toro
 device.name3=toroplus
 supported.versions=6.0 - 7.1.2
+supported.patchlevels=2019-07 -
 
 block=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot;
 is_slot_device=0;
@@ -42,6 +43,8 @@ __do.cleanuponabort=0__ will keep the zip from removing it's working directory i
 
 __supported.versions=__ will match against ro.build.version.release from the current ROM's build.prop. It can be set to a list or range. As a list of one or more entries, e.g. `7.1.2` or `8.1.0, 9` it will look for exact matches, as a range, e.g. `7.1.2 - 9` it will check to make sure the current version falls within those limits. Whitespace optional, and supplied version values should be in the same number format they are in the build.prop value for that Android version.
 
+__supported.patchlevels=__ will match against ro.build.version.security_patch from the current ROM's build.prop. It can be set as a closed or open-ended range of dates in the format YYYY-MM, whitespace optional, e.g. `2019-04 - 2019-06`, `2019-04 -` or `- 2019-06` where the last two examples show setting a minimum and maximum, respectively.
+
 `block=auto` instead of a direct block filepath enables detection of the device boot partition for use with broad, device non-specific zips. Also accepts specifically `boot` or `recovery`.
 
 `is_slot_device=1` enables detection of the suffix for the active boot partition on slot-based devices and will add this to the end of the supplied `block=` path. Also accepts `auto` for use with broad, device non-specific zips.
@@ -52,11 +55,22 @@ __supported.versions=__ will match against ro.build.version.release from the cur
 
 `slot_select=active|inactive` may be added to allow specifying the target slot. If omitted the default remains `active`.
 
+_Note: Currently pushing modules is to the active slot only._
+
 ## // Command Methods ##
 ```
+ui_print "<text>" [...]
+abort ["<text>" [...]]
+contains <string> <substring>
+file_getprop <file> <property>
+
+set_perm <owner> <group> <mode> <file> [<file2> ...]
+set_perm_recursive <owner> <group> <dir_mode> <file_mode> <dir> [<dir2> ...]
+
 dump_boot
 split_boot
 unpack_ramdisk
+
 backup_file <file>
 restore_file <file>
 replace_string <file> <if search string> <original string> <replacement string> <scope>
@@ -73,10 +87,12 @@ patch_fstab <fstab file> <mount match name> <fs match type> block|mount|fstype|o
 patch_cmdline <cmdline entry name> <replacement string>
 patch_prop <prop file> <prop name> <new prop value>
 patch_ueventd <ueventd file> <device node> <permissions> <chown> <chgrp>
+
 repack_ramdisk
 flash_boot
 flash_dtbo
 write_boot
+
 reset_ak [keep]
 setup_ak
 ```
@@ -120,17 +136,21 @@ Optional supported binaries which may be placed in /tools to enable built-in exp
 * `BootSignature_Android.jar` + `avb` keys directory - Google Android Verified Boot (AVB) signature support
 * `rkcrc` - Rockchip KRNL ramdisk image support
 
+Optionally moving ARM builds to tools/arm and putting x86 builds in tools/x86 will enable architecture detection for use with broad, device non-specific zips.
+
 ## // Instructions ##
 
-1. Place Image.gz-dtb in the root (separate dt, dtb or recovery_dtbo, and/or dtbo should also go here for devices that require custom ones, each will fallback to the original if not included)
+1. Place final kernel build product, e.g. Image.gz-dtb or zImage to name a couple, in the zip root (separate dt, dtb or recovery_dtbo, and/or dtbo should also go here for devices that require custom ones, each will fallback to the original if not included)
 
 2. Place any required ramdisk files in /ramdisk and modules in /modules (with the full path like /modules/system/lib/modules)
 
-3. Place any required patch files (generally partial files which go with commands) in /patch
+3. Place any required patch files (generally partial files which go with AK3 file editing commands) in /patch
 
 4. Modify the anykernel.sh to add your kernel's name, boot partition location, permissions for added ramdisk files, and use methods for any required ramdisk modifications (optionally, also place banner and/or version files in the root to have these displayed during flash)
 
 5. `zip -r9 UPDATE-AnyKernel3.zip * -x .git README.md *placeholder`
+
+_The LICENSE file must remain in the final zip to comply with licenses for binary redistribution and the license of the AK3 scripts._
 
 If supporting a recovery that forces zip signature verification (like Cyanogen Recovery) then you will need to also sign your zip using the method I describe here:
 

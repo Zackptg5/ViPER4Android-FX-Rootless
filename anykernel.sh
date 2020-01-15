@@ -37,9 +37,13 @@ ramdisk_compression=auto;
 
 ## AnyKernel install
 device_check() {
-  local PROP=$(echo "$1" | tr '[:upper:]' '[:lower:]')
-  for i in "ro.product.device" "ro.build.product"; do
-    [ "$(sed -n "s/^$i=//p" /system/build.prop 2>/dev/null | head -n 1 | tr '[:upper:]' '[:lower:]')" == "$PROP" -o "$(sed -n "s/^$i=//p" $VEN/build.prop 2>/dev/null | head -n 1 | tr '[:upper:]' '[:lower:]')" == "$PROP" ] && return 0
+  local PROP=$(echo "$1" | tr '[:upper:]' '[:lower:]') i
+  for i in /system_root /system /vendor /odm /product; do
+    if [ -f $i/build.prop ]; then
+      for j in "ro.product.device" "ro.build.product" "ro.product.vendor.device" "ro.vendor.product.device"; do
+        [ "$(sed -n "s/^$j=//p" $i/build.prop 2>/dev/null | head -n 1 | tr '[:upper:]' '[:lower:]')" == "$PROP" ] && return 0
+      done
+    fi
   done
   return 1
 }
