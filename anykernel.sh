@@ -7,6 +7,7 @@ properties() { '
 kernel.string=ViPER4AndroidFX 2.7.x Rootless Installer
 do.devicecheck=0
 do.modules=0
+do.systemless=1
 do.cleanup=1
 do.cleanuponabort=1
 device.name1=
@@ -56,10 +57,34 @@ manufacturer_check() {
 [ -L /system/vendor ] && VEN=/vendor || VEN=/system/vendor
 API=`file_getprop /system/build.prop ro.build.version.sdk`
 [ $API -ge 26 ] && { LIBPATCH="\/vendor"; LIBDIR=$VEN; } || { LIBPATCH="\/system"; LIBDIR=system; }
-[ -f /system_root/sepolicy ] && SEPOL=/system_root/sepolicy || SEPOL=sepolicy
 
 ui_print "- Unpacking boot img..."
 split_boot;
+
+
+# Detect Sepolicy file
+[ -e /dev/block/bootdevice/by-name/odm$slot ] && ODMPART=true || ODMPART=false
+$ODMPART && mount -o rw -t auto "/dev/block/bootdevice/by-name/odm$slot" /odm
+[ -f /system/etc/selinux/plat_sepolicy.cil.bak ] && mv -f /system/etc/selinux/plat_sepolicy.cil.bak /system/etc/selinux/plat_sepolicy.cil
+if [ -f /system/etc/selinux/plat_sepolicy.cil ]; then
+  # Split policy
+  if [ -f /odm/etc/selinux/precompiled_sepolicy ]; then
+    SEPOL=/odm/etc/selinux/precompiled_sepolicy
+  elif [ -f /vendor/etc/selinux/precompiled_sepolicy ]; then
+    SEPOL=/vendor/etc/selinux/precompiled_sepolicy
+  else
+    [ /system_root/init.rc ] && SEPOL=/system_root/sepolicy || SEPOL=sepolicy
+    rm -f $SEPOL
+    $bin/magiskpolicy --compile-split --save $SEPOL
+    mv -f /system/etc/selinux/plat_sepolicy.cil /system/etc/selinux/plat_sepolicy.cil.bak
+    [ "$SEPOL" == "sepolicy" ] && $bin/magiskboot cpio $split_img/ramdisk.cpio "add 0644 sepolicy sepolicy"
+  fi
+# Monolithic policy
+elif [ -f /system_root/sepolicy ]; then
+  SEPOL=/system_root/sepolicy
+else
+  SEPOL=sepolicy
+fi
 
 # Apply sepolicy patches
 ui_print "- Patching sepolicy..."
@@ -69,7 +94,7 @@ $bin/magiskpolicy --load $SEPOL --save $SEPOL "allow { audioserver mediaserver }
 cp -f $home/init.v4afx.rc /system/etc/init/init.v4afx.rc
 cp -f $home/v4afx.sh /system/bin/v4afx.sh
 chmod 0755 /system/bin/v4afx.sh
-
+$ODMPART && umount -l /odm
 
 ui_print "- Installing driver..."
 cp -f $bin/libv4a_fx.so $LIBDIR/lib/soundfx/libv4a_fx.so
